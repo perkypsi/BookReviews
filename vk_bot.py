@@ -1,5 +1,4 @@
 import csv
-import random
 
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -28,13 +27,11 @@ def formation_application(app):
 
 # Сообщения бота
 
-GREETING_MESSAGE = 'Привет, чтобы оставить нам жалобу или предложение напиши "Оставить заявку" ' \
-                   'или воспользуйся соответствующейся кнопкой'
-
-CONTACT_DETAILS_MESSAGE = "Отлично! Для начала укажи ФИО и номер группы."
-
-APPLICATION_MESSAGE = "Теперь напиши полный текст сообщения, содержащий жалобу или предложение."
-
+GREETING_MESSAGE = 'Здравствуйте, чтобы оставить нам жалобу или предложение напишите "Оставить заявку" ' \
+                   'или воспользуйтесь соответствующей кнопкой'
+CONTACT_DETAILS_MESSAGE = "Отлично! Для начала укажите ФИО."
+GROUP_DETAILS_MESSAGE = "Также укажите вашу группу."
+APPLICATION_MESSAGE = "Теперь напишите полный текст сообщения, содержащий жалобу,предложение или вопрос."
 END_STATE = "Превосходно! Твоя заявка передана в Совет Обучающихся, после " \
             "обработки мы обязательно ответим тебе. До встречи!"
 
@@ -52,6 +49,7 @@ print("Бот запущен")
 # Этапы отправки заявки
 
 contact_date = False
+group_date = False
 text_message = False
 
 # Сохранение заявки
@@ -70,22 +68,26 @@ for event in longpoll.listen():
             # Сообщение от пользователя
             request = event.text.lower()
 
-            keyboard = VkKeyboard()
-            keyboard.add_button("Оставить заявку", VkKeyboardColor.PRIMARY)
-
             if request == "оставить заявку":
                 write_msg(event.user_id, CONTACT_DETAILS_MESSAGE)
                 contact_date = True
             elif contact_date:
-                write_msg(event.user_id, APPLICATION_MESSAGE)
-                NEW_APPLICATION.append(event.text())
+                write_msg(event.user_id, GROUP_DETAILS_MESSAGE)
+                NEW_APPLICATION.append(request)
                 contact_date = False
+                group_date = True
+            elif group_date:
+                write_msg(event.user_id, APPLICATION_MESSAGE)
+                NEW_APPLICATION.append(request)
+                group_date = False
                 text_message = True
             elif text_message:
                 write_msg(event.user_id, END_STATE)
-                NEW_APPLICATION.append(event.text())
+                NEW_APPLICATION.append(request)
                 text_message = False
                 formation_application(NEW_APPLICATION)
                 NEW_APPLICATION = []
             else:
+                keyboard = VkKeyboard(one_time=True)
+                keyboard.add_button("Оставить заявку", VkKeyboardColor.NEGATIVE)
                 write_msg(event.user_id, GREETING_MESSAGE, keyboard=keyboard)
