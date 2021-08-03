@@ -1,10 +1,10 @@
+import csv
 import random
 
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkLongPoll, VkEventType
-
-from commander.commander import Commander
+import os
 
 
 def write_msg(user_id, message, keyboard=None):
@@ -19,6 +19,14 @@ def write_msg(user_id, message, keyboard=None):
         post = post
     vk.method('messages.send', post)
 
+
+def formation_application(app):
+    with open('applications.csv', 'a', newline='') as out_csv:
+        writer = csv.writer(out_csv)  # <_csv.writer object at 0x03B0AD80>
+        writer.writerow(app)
+
+
+# Сообщения бота
 
 GREETING_MESSAGE = 'Привет, чтобы оставить нам жалобу или предложение напиши "Оставить заявку" ' \
                    'или воспользуйся соответствующейся кнопкой'
@@ -39,17 +47,6 @@ vk = vk_api.VkApi(token=token)
 # Работа с сообщениями
 longpoll = VkLongPoll(vk)
 
-# Commander
-commander = Commander()
-
-# keyboard = VkKeyboard(one_time=True)
-# keyboard.add_button('Привет', color=VkKeyboardColor.PRIMARY)
-# keyboard.add_button('Клавиатура', color=VkKeyboardColor.POSITIVE)
-# keyboard.add_line()
-# keyboard.add_location_button()
-# keyboard.add_line()
-# keyboard.add_vkpay_button(hash="action=transfer-to-group&group_id=еще_раз_ID_группы")
-
 print("Бот запущен")
 
 # Этапы отправки заявки
@@ -57,13 +54,17 @@ print("Бот запущен")
 contact_date = False
 text_message = False
 
+# Сохранение заявки
+
+NEW_APPLICATION = []
+path = os.path.normpath(os.path.dirname(__file__))
 # Основной цикл
 for event in longpoll.listen():
 
     # Если пришло новое сообщение
     if event.type == VkEventType.MESSAGE_NEW:
 
-        # Если оно имеет метку для меня( то есть бота)
+        # Если оно имеет метку для меня (то есть бота)
         if event.to_me:
 
             # Сообщение от пользователя
@@ -77,12 +78,14 @@ for event in longpoll.listen():
                 contact_date = True
             elif contact_date:
                 write_msg(event.user_id, APPLICATION_MESSAGE)
+                NEW_APPLICATION.append(event.text())
                 contact_date = False
                 text_message = True
             elif text_message:
                 write_msg(event.user_id, END_STATE)
+                NEW_APPLICATION.append(event.text())
                 text_message = False
+                formation_application(NEW_APPLICATION)
+                NEW_APPLICATION = []
             else:
                 write_msg(event.user_id, GREETING_MESSAGE, keyboard=keyboard)
-
-
