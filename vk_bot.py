@@ -4,7 +4,6 @@ from datetime import datetime
 import vk_api
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkLongPoll, VkEventType
-import os
 
 
 class Vk_bot:
@@ -14,16 +13,19 @@ class Vk_bot:
         self.control_state_send = {
             "STATE_CONTACT": False,
             "STATE_GROUP": False,
-            "STATE_TEXT": False
+            "STATE_TEXT": False,
+            "STATE_FEEDBACK": False
         }
         self.types_message = {
             "GREETING_MESSAGE": 'Здравствуйте, чтобы оставить нам жалобу или предложение напишите "Оставить заявку" '
                                 'или воспользуйтесь соответствующей кнопкой',
             "CONTACT_DETAILS_MESSAGE": "Отлично! Для начала укажите ФИО.",
             "GROUP_DETAILS_MESSAGE": "Также укажите вашу группу.",
-            "CONTENT_MESSAGE": "Теперь напишите полный текст сообщения, содержащий жалобу,предложение или вопрос.",
-            "END_STATE": "Превосходно! Твоя заявка передана в Совет Обучающихся, после обработки мы обязательно "
-                         "ответим тебе. До встречи! "
+            "CONTENT_MESSAGE": "Теперь напишите полный текст сообщения, содержащий жалобу, предложение или вопрос.",
+            "END_STATE": "Перед тем, как заявка будет отправлена, поставьте, пожалуйста, оценку работы и удобства "
+                         "бота по 10-ти бальной шкале.",
+            "FEEDBACK_STATE": "Превосходно! Твоя заявка передана в Совет Обучающихся, после обработки мы обязательно "
+                              "ответим тебе! Спасибо за ваш отзыв! До встречи! "
         }
         self.application = {
             'date': '',
@@ -50,13 +52,24 @@ class Vk_bot:
         self.write_msg(message=self.types_message["END_STATE"])
         self.application['content'] = message
         self.control_state_send["STATE_TEXT"] = False
+        self.control_state_send["STATE_FEEDBACK"] = True
+
+    def get_feedback(self, message):
+        self.write_msg(message=self.types_message["FEEDBACK_STATE"])
+        try:
+            feedback = int(message)
+        except ValueError:
+            self.application['feedback'] = message
+        else:
+            self.application['feedback'] = feedback
+        self.control_state_send["STATE_FEEDBACK"] = False
 
     def send_data(self):
         self.application['date'] = str(datetime.now())[:-7]
         self.application['id_vk'] = self.user_id
 
         application_info = [x for x in self.application.values()]
-        with open('applications.csv', 'a', newline='') as out_csv:
+        with open('applications.csv', 'a', newline='', encoding='utf8') as out_csv:
             writer = csv.writer(out_csv)
             writer.writerow(application_info)
         self.control_state_send["STATE_SEND"] = False
@@ -85,6 +98,8 @@ class Vk_bot:
             self.get_group(message=message)
         elif self.control_state_send["STATE_TEXT"]:
             self.get_content(message=message)
+        elif self.control_state_send["STATE_FEEDBACK"]:
+            self.get_feedback(message=message)
             self.send_data()
         else:
             keyboard = VkKeyboard(one_time=True)
@@ -122,10 +137,13 @@ for event in longpoll.listen():
             user = str(event.user_id)
 
             if user in bot_online and bot_online[user] is not None:
+                print(f"Объект {user} есть в списке, продолжаем работу")
                 bot_online[user].act(request)
+                for item in bot_online:
+                    if bot_online[item].complete_application:
+                        bot_online[item] = None
             else:
+                print(f"Объекта {user} нет в списке")
                 bot_online[user] = Vk_bot(event.user_id)
                 bot_online[user].act(request)
-            for item in bot_online:
-                if bot_online[item].complete_application:
-                    bot_online[item] = None
+                print("Словарь действующих ботов:", bot_online)
