@@ -1,0 +1,8 @@
+applications.csv
+dont_work_bot.py
+probe.py
+telegram_bot.py
+.idea/
+venv/
+bot.log
+settings.py
